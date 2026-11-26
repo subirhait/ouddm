@@ -1,0 +1,109 @@
+model,param,estimate,se
+M0 no design,log_a:intercept,0.7560774640081338,0.002353891917130436
+M0 no design,logit_w:intercept,0.06952094549747062,0.004687512925277394
+M0 no design,logit_kappa,2.5341698554239134,0.01837698874156688
+M0 no design,log_tau,-0.9939023622722797,0.09770722809597551
+M0 no design,log_theta,9.0,67.68529004141857
+M0 no design,log_sd_stat,-0.7083435292253368,0.026672778414416173
+M0 no design,mu0,1.130629399943566,
+M0 no design,kappa,0.9265028066618941,
+M0 no design,tau,0.37012948975011467,
+M0 no design,theta,8103.083927575384,
+M0 no design,sigma,62.69176260232182,
+M0 no design,omega,0.0,
+M0 no design,sd_stat,0.4924592665883143,
+M1 nuisance design,log_a:intercept,0.7790680221383122,0.0030472969198530515
+M1 nuisance design,log_a:ChoiceUrgencyCoded,-0.04416633340485776,0.004038756949480989
+M1 nuisance design,logit_w:intercept,0.008102702177558216,0.006427583766370985
+M1 nuisance design,logit_w:ProbOfChangeCoded,0.1315061319413551,0.009362163144401532
+M1 nuisance design,logit_kappa,2.5851609224737913,0.018797607527688293
+M1 nuisance design,log_tau,-0.998132353737863,0.09752836146976368
+M1 nuisance design,log_theta,9.0,67.68528994361517
+M1 nuisance design,log_sd_stat,-0.7215170043003679,0.026800514538723258
+M1 nuisance design,mu0,1.1165160758574642,
+M1 nuisance design,kappa,0.9299004343349747,
+M1 nuisance design,tau,0.3685671518348878,
+M1 nuisance design,theta,8103.083927575384,
+M1 nuisance design,sigma,61.87131020001172,
+M1 nuisance design,omega,0.0,
+M1 nuisance design,sd_stat,0.48601441049334,
+M2 + manipulations on drift,log_a:intercept,0.7786901353127097,0.0030581220424214096
+M2 + manipulations on drift,log_a:ChoiceUrgencyCoded,-0.04352781089928604,0.00407318923966036
+M2 + manipulations on drift,logit_w:intercept,0.008176268367426012,0.006428425978239707
+M2 + manipulations on drift,logit_w:ProbOfChangeCoded,0.12807354081780797,0.009386518244283082
+M2 + manipulations on drift,logit_kappa,2.582287824107343,0.0188006673790137
+M2 + manipulations on drift,log_tau,-1.0025810622836806,0.09586826250070027
+M2 + manipulations on drift,log_theta,6.539589814953597,0.17770809818611094
+M2 + manipulations on drift,log_sd_stat,-0.8900560247580268,0.028387704362342392
+M2 + manipulations on drift,beta:StudyTimeCoded_c,-0.30703439522244075,0.027078328305718893
+M2 + manipulations on drift,beta:ChoiceUrgencyCoded_c,0.029862240359093375,0.027819214399563374
+M2 + manipulations on drift,beta:ProbOfChangeCoded_c,0.1757100210549372,0.03008813563700987
+M2 + manipulations on drift,beta:ProbeTypeCoded_c,-0.3576194962288074,0.02597926504990571
+M2 + manipulations on drift,mu0,1.1085057766273214,
+M2 + manipulations on drift,kappa,0.9297129181656243,
+M2 + manipulations on drift,tau,0.36693114575211616,
+M2 + manipulations on drift,theta,692.0026706656155,
+M2 + manipulations on drift,sigma,15.276450704184183,
+M2 + manipulations on drift,omega,0.0,
+M2 + manipulations on drift,sd_stat,0.4106327465076309,
+M3 + practice on drift,log_a:intercept,0.7786665478631224,0.003057194234379152
+M3 + practice on drift,log_a:ChoiceUrgencyCoded,-0.043397454670445035,0.004070187270790927
+M3 + practice on drift,logit_w:intercept,0.008132832897000687,0.006428317948430775
+M3 + practice on drift,logit_w:ProbOfChangeCoded,0.12885812855417167,0.00938519751495452
+M3 + practice on drift,logit_kappa,2.582134752036245,0.018801998882882597
+M3 + practice on drift,log_tau,-0.9768598988734746,0.09246509541996657
+M3 + practice on drift,log_theta,8.684020582464155,8.654406410377886
+M3 + practice on drift,log_sd_stat,-1.015957757057457,0.029152955255637995
+M3 + practice on drift,beta:StudyTimeCoded_c,-0.2097443112813468,0.026096833518293425
+M3 + practice on drift,beta:ChoiceUrgencyCoded_c,0.00489234864336441,0.025576408532796278
+M3 + practice on drift,beta:ProbOfChangeCoded_c,0.053142641037518284,0.02678679390819291
+M3 + practice on drift,beta:ProbeTypeCoded_c,-0.3498625601425447,0.02506156589265183
+M3 + practice on drift,beta:day_c,0.08543607478014797,0.0059554513920036444
+M3 + practice on drift,mu0,1.113518367095411,
+M3 + practice on drift,kappa,0.9297029147364135,
+M3 + practice on drift,tau,0.3764914659217928,
+M3 + practice on drift,theta,5907.7515077325015,
+M3 + practice on drift,sigma,39.35512171970061,
+M3 + practice on drift,omega,0.0,
+M3 + practice on drift,sd_stat,0.36205550251024404,
+M2n M2 + session deviations,log_a:intercept,0.7786872934237458,0.003057054430326443
+M2n M2 + session deviations,log_a:ChoiceUrgencyCoded,-0.04358466507789671,0.004069839625175094
+M2n M2 + session deviations,logit_w:intercept,0.008119991881421472,0.006428411504479913
+M2n M2 + session deviations,logit_w:ProbOfChangeCoded,0.12830564337813447,0.009385970343330908
+M2n M2 + session deviations,logit_kappa,2.582767701212306,0.018800976702199396
+M2n M2 + session deviations,log_tau,-6.506164846776536,65.5378722200103
+M2n M2 + session deviations,log_theta,-2.42169278741466,0.21505378673774445
+M2n M2 + session deviations,log_sd_stat,-0.8011136599300427,0.07592045600184458
+M2n M2 + session deviations,log_omega,-1.0930544549475392,0.034315499937845086
+M2n M2 + session deviations,beta:StudyTimeCoded_c,-0.25360958742702716,0.025082231885596322
+M2n M2 + session deviations,beta:ChoiceUrgencyCoded_c,0.014590913955315539,0.025474315686599257
+M2n M2 + session deviations,beta:ProbOfChangeCoded_c,0.09871832407114432,0.029258308941542303
+M2n M2 + session deviations,beta:ProbeTypeCoded_c,-0.3505651505551542,0.02352130160396159
+M2n M2 + session deviations,mu0,1.0960367494668108,
+M2n M2 + session deviations,kappa,0.929744270136975,
+M2n M2 + session deviations,tau,0.0014941992314525063,
+M2n M2 + session deviations,theta,0.0887712193963482,
+M2n M2 + session deviations,sigma,0.18911755685147358,
+M2n M2 + session deviations,omega,0.3351911023771121,
+M2n M2 + session deviations,sd_stat,0.4488288429885963,
+M3n M3 + session deviations,log_a:intercept,0.7786660531630009,0.0030567689166828968
+M3n M3 + session deviations,log_a:ChoiceUrgencyCoded,-0.043498015834431976,0.004068888547785729
+M3n M3 + session deviations,logit_w:intercept,0.008128740616014573,0.006428398056730939
+M3n M3 + session deviations,logit_w:ProbOfChangeCoded,0.12874030001196413,0.009385374121709672
+M3n M3 + session deviations,logit_kappa,2.5825004366593416,0.018801026846632134
+M3n M3 + session deviations,log_tau,-3.443631258978817,7.159095025180344
+M3n M3 + session deviations,log_theta,-3.273146836113596,0.3354936289648712
+M3n M3 + session deviations,log_sd_stat,-0.9256212500588178,0.09585915446051613
+M3n M3 + session deviations,log_omega,-1.0873132414470594,0.033010584629864184
+M3n M3 + session deviations,beta:StudyTimeCoded_c,-0.21214451568083045,0.02494444986362735
+M3n M3 + session deviations,beta:ChoiceUrgencyCoded_c,0.005364423584917154,0.024835338872611665
+M3n M3 + session deviations,beta:ProbOfChangeCoded_c,0.050807203543025314,0.027099688871521
+M3n M3 + session deviations,beta:ProbeTypeCoded_c,-0.3492882214225291,0.023624210909991318
+M3n M3 + session deviations,beta:day_c,0.08500696970532554,0.0075256305616914045
+M3n M3 + session deviations,mu0,1.1023482237487898,
+M3n M3 + session deviations,kappa,0.929726810447946,
+M3n M3 + session deviations,tau,0.0319484612988467,
+M3n M3 + session deviations,theta,0.037887015061464524,
+M3n M3 + session deviations,sigma,0.10908574246803562,
+M3n M3 + session deviations,omega,0.33712104085259426,
+M3n M3 + session deviations,sd_stat,0.3962851504127005,

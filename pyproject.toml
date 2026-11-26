@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ouddm"
+version = "0.4.4"
+description = "Exact likelihood and study design for drift diffusion models with Ornstein-Uhlenbeck drift dynamics"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Subir Hait", email = "haitsubi@msu.edu" }]
+keywords = ["drift diffusion model", "Ornstein-Uhlenbeck", "intensive longitudinal data",
+            "ambulatory assessment", "cognitive modeling", "study design"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Mathematics",
+]
+dependencies = ["numpy>=1.24", "scipy>=1.10", "pandas>=2.0"]
+
+[project.optional-dependencies]
+dev = ["pytest", "matplotlib"]
+
+[project.urls]
+Homepage = "https://github.com/subirhait/ouddm"
+Issues = "https://github.com/subirhait/ouddm/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]

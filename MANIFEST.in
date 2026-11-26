@@ -1,0 +1,4 @@
+include README.md LICENSE CHANGELOG.md
+recursive-include tests *.py
+recursive-include examples *.py
+prune paper
