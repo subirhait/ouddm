@@ -6,8 +6,11 @@ Tasks: An Exact Likelihood for Diffusion Models with Ornstein–Uhlenbeck Drift.
 This archive rebuilds every number, table, and figure in the manuscript. You can
 use it in two ways:
 
-- **Rebuild only** (minutes): use the result files in `results/`.
-- **Rerun everything** (about two hours on 2 cores): rerun the simulations first.
+- **Quick rebuild** (a few minutes): rebuild the figures and the manuscript
+  from the archived result files in `results/`.
+- **Full rerun** (several hours on 2 cores; Simulation study 4 alone takes about
+  four): rerun every simulation and analysis, then rebuild. The two data sets must
+  be downloaded from OSF first.
 
 ## Contents
 
@@ -35,20 +38,32 @@ pandoc (3.1 was used).
 
 ## Commands
 
+### Setup (both routes)
+
 ```bash
 tar xzf ouddm-0.6.1.tar.gz
 cd ouddm-0.6.1
 python -m pip install -e ".[dev]"
 python -m pytest -q                      # 38 tests
-
-# --- manuscript build files are not in the package; copy them in ---
-cp -r ../paper .
-
-# --- rebuild only: copy the archived results in ---
+cp -r ../paper .                         # manuscript build files are not in the package
 mkdir -p results figures
-cp -r ../results/. results/
+```
 
-# --- or rerun everything (wall times on 2 cores) ---
+### Quick rebuild (a few minutes)
+
+```bash
+cp -r ../results/. results/              # archived result files
+python examples/paper_figures.py results figures      # Figures 1-6
+python paper/build_manuscript.py                     # writes paper/Hait_OU_DDM_manuscript.docx
+```
+
+### Full rerun (several hours on 2 cores)
+
+Run these in place of the `cp` line above, then run the two rebuild commands.
+Wall times are for 2 cores.
+
+```bash
+# --- simulation studies 1-3 ---
 python examples/main_study.py 100 results            # Study 1, ~36 min
 python examples/condition_study.py 40 results        # Study 3, ~26 min
 python examples/sv_study.py 50 results               # Study 3, drift variability, ~40 min
@@ -66,10 +81,14 @@ python -I examples/color_shapes_ou_bound.py <path>/data_merged.csv results      
 python -I examples/color_shapes_s1_noou.py <path>/data_merged.csv results               # S1 without OU, Table 7
 python -I examples/color_shapes_kernels.py <path>/data_merged.csv results               # Table 8 (Color Shapes columns)
 python -I examples/dynamics_with_sv.py cs <path>/data_merged.csv results
-# Space Observer (Marzuki et al., 2026): download space-observer-dta.csv and task_data.csv from https://osf.io/x7h5k/
-python -I examples/space_observer_application.py <so>/space-observer-dta.csv <so>/task_data.csv results
+python -I examples/color_shapes_counts.py <path>/data_merged.csv results
+python -I examples/color_shapes_descriptives.py <path>/ColorShapesTrialData_n69.csv results
+
+# --- Space Observer application (data not redistributed) ---
+# Download space-observer-dta.csv and task_data.csv from https://osf.io/x7h5k/
+python -I examples/space_observer_application.py <so>/space-observer-dta.csv <so>/task_data.csv results   # ~60 min
 python -I examples/dynamics_with_sv.py so <so>/space-observer-dta.csv <so>/task_data.csv results
-python -I examples/spaceobs_profile_sv.py <so>/space-observer-dta.csv <so>/task_data.csv results
+python -I examples/spaceobs_profile_sv.py <so>/space-observer-dta.csv <so>/task_data.csv results          # Figure 5
 python -I examples/spaceobs_robustness.py robust A <so>/space-observer-dta.csv <so>/task_data.csv results   # Table 9, ~8 min
 python -I examples/spaceobs_robustness.py robust B <so>/space-observer-dta.csv <so>/task_data.csv results   # Table 9, ~7 min
 python -I examples/spaceobs_robustness.py holdout <so>/space-observer-dta.csv <so>/task_data.csv results    # Table 10, ~7 min
@@ -78,7 +97,8 @@ python -I examples/spaceobs_rolling.py fit-logprac <so>/space-observer-dta.csv <
 python -I examples/spaceobs_rolling.py insample-logprac <so>/space-observer-dta.csv <so>/task_data.csv results
 python -I examples/spaceobs_rolling.py summary results
 python -I examples/spaceobs_rolling.py summary results logprac
-# Simulation study 4 (Table 12, Figure 6): ~3 h on 2 cores; reps can be split across processes
+
+# --- Simulation study 4 (Table 12, Figure 6): about 4 h; reps can be split across processes ---
 python -I examples/schedule_study.py calibrate <so>/space-observer-dta.csv <so>/task_data.csv results   # writes results/schedule_calibration.csv
 python -I examples/schedule_study.py run results/schedule_calibration.csv results/schedule none 0 60
 python -I examples/schedule_study.py run results/schedule_calibration.csv results/schedule 0.25 0 30
@@ -88,12 +108,6 @@ python -I examples/schedule_study.py check results/schedule_calibration.csv resu
 python -I examples/schedule_study.py run results/schedule_calibration.csv results/schedule_nullcheck none 100 160   # fresh no-OU data sets
 python -I examples/schedule_study.py nullcheck results/schedule results/schedule_nullcheck   # split-half check
 python -I examples/schedule_study.py summary results/schedule results/schedule_nullcheck      # critical values from all 120 no-OU sets
-python -I examples/color_shapes_counts.py <path>/data_merged.csv results
-python -I examples/color_shapes_descriptives.py <path>/ColorShapesTrialData_n69.csv results
-
-# --- figures and manuscript ---
-python examples/paper_figures.py results figures      # Figures 1-6
-python paper/build_manuscript.py                     # writes paper/Hait_OU_DDM_manuscript.docx
 ```
 
 `paper/build_manuscript.py` reads every number in the text and tables from
