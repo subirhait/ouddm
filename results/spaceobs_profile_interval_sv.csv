@@ -1,0 +1,2 @@
+theta_lo,theta_hi,halflife_lo,halflife_hi,long_end_open,short_end_open,disconnected,regions,empty,needs_refinement,ref_loglik,max_dev_on_grid,model,fit_loglik,fit_halflife,lr_vs_none
+0.33882382774505365,3.4316988644325366,0.2019836844497029,2.0457450857957387,False,False,False,"[(0.2019836844497029, 2.0457450857957387)]",False,False,-51817.30726537091,11.369484337687027,person|ou|sv,-51817.3201102441,0.6454608888347949,11.364829353013192

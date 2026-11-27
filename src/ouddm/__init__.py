@@ -9,6 +9,7 @@ fit_design(DesignData...)    exact likelihood for real task designs: stimulus co
                              condition-specific boundary and start point, person-specific
                              non-decision time, drift predictors, session deviations
 profile_theta(...)           profile likelihood of the half-life
+predict_choices(...)         held-out choice probabilities from a fit (new sessions)
 design_information(...)      plug-in SE of the drift half-life for a schedule
 compare_designs(...)         fixed-budget comparison of session schedules
 simulate_study(...)          simulate OU-drift DDM data
@@ -19,22 +20,24 @@ rt (seconds), correct (1 = upper boundary, 0 = lower boundary).
 
 from .collapsed import collapsed_loglik, fit_collapsed, session_summaries
 from .design import compare_designs, design_information, schedule, trial_information
-from .design_model import DesignData, DesignFit, fit_design, profile_interval, profile_theta, supported_regions
+from .design_model import (DesignData, DesignFit, fit_design, p_upper, predict_choices, profile_interval,
+                           profile_theta, session_drift_predictive, supported_regions)
 from .estimate import JointFit, SessionData, fit_exact, fit_two_stage_ml
 from .ez import ez_by_occasion, ez_diffusion
 from .ou import OUFit, fit_ou
 from .simulate import DesignParams, OUDDMParams, simulate_ou, simulate_study, simulate_wiener
 from .twostage import oracle, two_stage
-from .wiener import information_ratio_choice, wiener_cdf, wiener_logpdf
+from .wiener import first_passage_kernel, information_ratio_choice, wald_logpdf, wiener_cdf, wiener_logpdf
 
-__version__ = "0.4.4"
+__version__ = "0.6.1"
 
 __all__ = [
     "fit_exact", "fit_two_stage_ml", "JointFit", "SessionData",
     "DesignData", "DesignFit", "fit_design", "profile_theta", "profile_interval", "supported_regions",
+    "predict_choices", "session_drift_predictive", "p_upper",
     "design_information", "compare_designs", "schedule", "trial_information",
     "collapsed_loglik", "fit_collapsed", "session_summaries",
     "DesignParams", "OUDDMParams", "simulate_ou", "simulate_study", "simulate_wiener",
     "ez_by_occasion", "ez_diffusion", "two_stage", "oracle", "fit_ou", "OUFit",
-    "information_ratio_choice", "wiener_cdf", "wiener_logpdf",
+    "information_ratio_choice", "wiener_cdf", "wiener_logpdf", "wald_logpdf", "first_passage_kernel",
 ]

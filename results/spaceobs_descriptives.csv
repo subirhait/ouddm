@@ -1,0 +1,2 @@
+trials_raw,trials,persons,sessions,sessions_per_person_median,trials_per_session_median,accuracy,median_rt,gap_median_days,gap_p10_hours,span_median_days
+90064,89119,161,1071,7.0,80.0,0.7275104074327584,0.837,1.757777777777778,4.49313888888889,12.495590277777778

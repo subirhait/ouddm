@@ -87,3 +87,23 @@ def information_ratio_choice(v, a):
     with np.errstate(invalid="ignore", divide="ignore"):
         r = np.where(np.abs(x) < 1e-8, 1.0, x / np.sinh(x))
     return r
+
+
+def wald_logpdf(t, v, a):
+    """Log density of the first passage of Brownian motion with drift v and unit
+    diffusion, started at 0, through a single boundary at a > 0 (shifted Wald
+    without the shift)."""
+    t = np.asarray(t, float)
+    return np.log(a) - 0.5 * np.log(2 * np.pi * t ** 3) - (a - v * t) ** 2 / (2 * t)
+
+
+def first_passage_kernel(hit, tau):
+    """Gaussian kernel of a session's likelihood in a constant drift v
+    (Theorem 1). For Brownian motion with unit diffusion stopped at the first
+    passage through any boundaries, the log likelihood is
+        log L(v) - log L(0) = b v - S v^2 / 2,
+    with b = sum of (boundary value hit - start point) and S = sum of decision
+    times. hit: boundary value minus start point per trial (e.g. a(1 - w) or
+    -a w for the DDM, a for a single-boundary model); tau: decision times.
+    Returns (b, S)."""
+    return float(np.sum(hit)), float(np.sum(tau))

@@ -20,6 +20,17 @@ For any a, w, s the trial log density in eta is exactly
     c_r = -s_r * a_r w_r        (lower response),
 so each session is still a Gaussian kernel in u with curvature S_j = sum T,
 and Proposition 2 (all latent states integrate out) applies unchanged.
+
+Across-trial drift variability (sv): if eta_r = m_r + e_r with e_r ~ N(0, sv^2),
+integrating e_r gives exactly
+    log f(T | 0) + (c m - T m^2 / 2) / k + c^2 sv^2 / (2k) - log(k) / 2,  k = 1 + T sv^2,
+which is again quadratic in the session state, with weights 1 / k.
+
+Session dynamics (kernel):
+    "ou"   Ornstein-Uhlenbeck, K = sd^2 exp(-theta |dt|)        (half-life ln2 / theta)
+    "rw"   random walk from the first session, K = s_rw^2 min(t - t0, t' - t0)
+    "se"   squared-exponential Gaussian process, K = sd^2 exp(-dt^2 / (2 ell^2))
+    "none" no dynamic component
 """
 
 from __future__ import annotations
@@ -58,19 +69,38 @@ class DesignData:
     names: dict = field(default_factory=dict)
     zcache: dict = field(default_factory=dict)
     nugget: bool = False      # independent session-level drift deviations (variance omega^2)
-    ou: bool = True           # OU state across sessions
+    ou: bool = True           # OU state across sessions (kept for compatibility; see kernel)
     slope_z: np.ndarray | None = None   # session-level variable with a person-specific random slope
+    kernel: str = "ou"        # session dynamics: "ou", "rw", "se", or "none"
+    sv: bool = False          # estimate across-trial drift variability
+    trial_index: np.ndarray | None = None   # index of each trial in the input DataFrame
+    has_outcomes: bool = True               # False: built for prediction only (no rt, no response)
 
     @classmethod
     def from_trials(cls, trials: pd.DataFrame, stim_col: str, boundary=(), bias=(), drift=(),
-                    nugget=False, ou=True, slope=None):
-        need = {"person", "occasion", "time", "rt", "upper", stim_col, *boundary, *bias, *drift}
+                    nugget=False, ou=True, slope=None, kernel=None, sv=False, outcomes=True):
+        """kernel: "ou" (default), "rw", "se" or "none"; ou=False is the same as kernel="none".
+        sv: also estimate across-trial drift variability.
+        outcomes=False builds data for prediction only (future sessions): the
+        columns rt and upper are not needed, and the object can be passed to
+        predict_choices as d_test but not fitted. Trials keep their DataFrame
+        index in trial_index, so predictions can be matched to input rows."""
+        kernel = ("ou" if ou else "none") if kernel is None else kernel
+        if kernel not in ("ou", "rw", "se", "none"):
+            raise ValueError("kernel must be 'ou', 'rw', 'se' or 'none'")
+        need = {"person", "occasion", "time", stim_col, *boundary, *bias, *drift}
+        if outcomes:
+            need |= {"rt", "upper"}
         if slope:
             need.add(slope)
         miss = need - set(trials.columns)
         if miss:
             raise ValueError(f"missing columns: {sorted(miss)}")
-        tr = trials.dropna(subset=list(need)).sort_values(["person", "time", "occasion"]).reset_index(drop=True)
+        tr = trials.dropna(subset=list(need)).sort_values(["person", "time", "occasion"], kind="mergesort")
+        idx = tr.index.to_numpy()
+        tr = tr.reset_index(drop=True)
+        if not outcomes:
+            tr = tr.assign(rt=np.nan, upper=-1)
         agg = {"time": ("time", "first")}
         if slope:
             agg["slope_z"] = (slope, "first")
@@ -81,7 +111,8 @@ class DesignData:
         slices, start = [], 0
         for _, cnt in s.groupby("person", sort=False).size().items():
             slices.append(slice(start, start + cnt)); start += cnt
-        minrt = tr.groupby("person")["rt"].transform("min").to_numpy(float)
+        minrt = (tr.groupby("person")["rt"].transform("min").to_numpy(float) if outcomes
+                 else np.full(len(tr), np.nan))
         n = len(tr)
         Z = np.column_stack([np.ones(n)] + [tr[c].to_numpy(float) for c in boundary])
         Q = np.column_stack([np.ones(n)] + [tr[c].to_numpy(float) for c in bias])
@@ -91,7 +122,8 @@ class DesignData:
                    person=s.person.to_numpy(), person_slices=slices, J=len(s),
                    names={"boundary": ["intercept", *boundary], "bias": ["intercept", *bias], "drift": list(drift),
                           "slope": slope},
-                   nugget=nugget, ou=ou, slope_z=(s.slope_z.to_numpy(float) if slope else None))
+                   nugget=nugget, ou=(kernel == "ou"), slope_z=(s.slope_z.to_numpy(float) if slope else None),
+                   kernel=kernel, sv=sv, trial_index=idx, has_outcomes=outcomes)
 
     @property
     def sizes(self):
@@ -101,8 +133,10 @@ class DesignData:
 def _names(d: DesignData):
     return ([f"log_a:{n}" for n in d.names["boundary"]] + [f"logit_w:{n}" for n in d.names["bias"]]
             + ["logit_kappa", "log_tau"]
-            + (["log_theta", "log_sd_stat"] if d.ou else [])
+            + {"ou": ["log_theta", "log_sd_stat"], "se": ["log_ell", "log_sd_stat"],
+               "rw": ["log_sd_rw"], "none": []}[d.kernel]
             + (["log_omega"] if d.nugget else [])
+            + (["log_sv"] if d.sv else [])
             + (["log_slope_sd", "atanh_rho"] if d.slope_z is not None else [])
             + [f"beta:{n}" for n in d.names["drift"]])
 
@@ -116,49 +150,116 @@ def _unpack(x, d: DesignData):
     pa, pw, k = d.sizes
     out = {"alpha": np.asarray(x[:pa]), "gamma": np.asarray(x[pa:pa + pw]),
            "kappa": _logistic(v["logit_kappa"]), "tau": float(np.exp(v["log_tau"])),
-           "theta": float(np.exp(v["log_theta"])) if d.ou else np.inf,
-           "sd_stat": float(np.exp(v["log_sd_stat"])) if d.ou else 0.0,
+           "theta": float(np.exp(v["log_theta"])) if d.kernel == "ou" else np.inf,
+           "sd_stat": float(np.exp(v["log_sd_stat"])) if d.kernel in ("ou", "se") else 0.0,
+           "ell": float(np.exp(v["log_ell"])) if d.kernel == "se" else np.nan,
+           "sd_rw": float(np.exp(v["log_sd_rw"])) if d.kernel == "rw" else 0.0,
+           "sv": float(np.exp(v["log_sv"])) if d.sv else 0.0,
            "omega": float(np.exp(v["log_omega"])) if d.nugget else 0.0,
            "slope_sd": float(np.exp(v["log_slope_sd"])) if d.slope_z is not None else 0.0,
            "rho": float(np.tanh(v["atanh_rho"])) if d.slope_z is not None else 0.0,
            "beta": np.asarray(x[len(names) - k:]) if k else np.zeros(0)}
-    out["sigma"] = out["sd_stat"] * np.sqrt(2 * out["theta"]) if d.ou else 0.0
+    out["sigma"] = out["sd_stat"] * np.sqrt(2 * out["theta"]) if d.kernel == "ou" else 0.0
     return out
+
+
+def _kcross(t1, t2, z1, z2, t_first, d: DesignData, p):
+    """Covariance of latent session drifts between two sets of sessions of one
+    person (no independent deviations): tau^2 + dynamics kernel + slope terms."""
+    tau, sd = p["tau"], p["sd_stat"]
+    C = np.full((t1.size, t2.size), tau ** 2)
+    dt = t1[:, None] - t2[None, :]
+    if d.kernel == "ou":
+        C += sd ** 2 * np.exp(-p["theta"] * np.abs(dt))
+    elif d.kernel == "se":
+        C += sd ** 2 * np.exp(-0.5 * (dt / p["ell"]) ** 2)
+    elif d.kernel == "rw":
+        C += p["sd_rw"] ** 2 * np.minimum((t1 - t_first)[:, None], (t2 - t_first)[None, :])
+    if d.slope_z is not None:
+        s_sd, rho = p["slope_sd"], p["rho"]
+        C += rho * tau * s_sd * (z1[:, None] + z2[None, :]) + s_sd ** 2 * np.outer(z1, z2)
+    return C
+
+
+def _kbatch(t, z, d: DesignData, p):
+    """Batched _kcross for G persons with the same number of sessions: t, z are (G, K)."""
+    tau, sd = p["tau"], p["sd_stat"]
+    G, K = t.shape
+    C = np.full((G, K, K), tau ** 2)
+    dt = t[:, :, None] - t[:, None, :]
+    if d.kernel == "ou":
+        C += sd ** 2 * np.exp(-p["theta"] * np.abs(dt))
+    elif d.kernel == "se":
+        C += sd ** 2 * np.exp(-0.5 * (dt / p["ell"]) ** 2)
+    elif d.kernel == "rw":
+        t0 = t - t.min(axis=1, keepdims=True)
+        C += p["sd_rw"] ** 2 * np.minimum(t0[:, :, None], t0[:, None, :])
+    if d.slope_z is not None:
+        s_sd, rho = p["slope_sd"], p["rho"]
+        C += rho * tau * s_sd * (z[:, :, None] + z[:, None, :]) + s_sd ** 2 * z[:, :, None] * z[:, None, :]
+    return C
+
+
+def _person_groups(d: DesignData):
+    """Session indices of persons grouped by their number of sessions (cached)."""
+    g = d.zcache.get("groups")
+    if g is None:
+        by = {}
+        for sl in d.person_slices:
+            by.setdefault(sl.stop - sl.start, []).append(np.arange(sl.start, sl.stop))
+        g = [np.vstack(v) for v in by.values()]
+        d.zcache["groups"] = g
+    return g
 
 
 def _cov_profile(m, var, d: DesignData, p):
     """Gaussian log-likelihood of the session statistics with mu0 profiled out.
-    Person covariance: [1 z] G [1 z]' + K(theta, sd_stat) + diag(var + omega^2)."""
+    Person covariance: [1 z] G [1 z]' + K(theta, sd_stat) + diag(var + omega^2).
+    Persons with the same number of sessions are processed as one batch."""
+    om2 = p["omega"] ** 2
+    parts = []
     num = den = 0.0
-    facs = []
-    tau, sd, th, om = p["tau"], p["sd_stat"], p["theta"], p["omega"]
-    s_sd, rho = p["slope_sd"], p["rho"]
-    for sl in d.person_slices:
-        t = d.time[sl]
-        C = np.full((t.size, t.size), tau ** 2)
-        if d.ou:
-            C += sd ** 2 * np.exp(-th * np.abs(t[:, None] - t[None, :]))
-        if d.slope_z is not None:
-            z = d.slope_z[sl]
-            C += rho * tau * s_sd * (z[:, None] + z[None, :]) + s_sd ** 2 * np.outer(z, z)
-        C[np.diag_indices_from(C)] += var[sl] + om ** 2 + 1e-10
+    for idx in _person_groups(d):
+        t = d.time[idx]
+        z = d.slope_z[idx] if d.slope_z is not None else np.zeros_like(t)
+        C = _kbatch(t, z, d, p)
+        K = t.shape[1]
+        C[:, np.arange(K), np.arange(K)] += var[idx] + om2 + 1e-10
         try:
-            c = cho_factor(C, lower=True, check_finite=False)
+            L = np.linalg.cholesky(C)
         except np.linalg.LinAlgError:
             return -np.inf, np.nan
-        one = np.ones(t.size)
-        Si1 = cho_solve(c, one, check_finite=False)
-        num += Si1 @ m[sl]; den += Si1.sum()
-        facs.append(c)
+        mm = m[idx]
+        sol = np.linalg.solve(C, np.stack([np.ones_like(mm), mm], axis=2))   # (G, K, 2)
+        a11 = sol[:, :, 0].sum(1); a1m = sol[:, :, 1].sum(1); amm = np.einsum("gk,gk->g", mm, sol[:, :, 1])
+        logdet = 2 * np.log(np.diagonal(L, axis1=1, axis2=2)).sum(1)
+        num += a1m.sum(); den += a11.sum()
+        parts.append((a11, a1m, amm, logdet, K))
     mu0 = num / den
     ll = 0.0
-    for sl, c in zip(d.person_slices, facs):
-        r = m[sl] - mu0
-        ll -= 0.5 * (2 * np.sum(np.log(np.diag(c[0]))) + r @ cho_solve(c, r, check_finite=False) + r.size * LOG2PI)
-    return ll, mu0
+    for a11, a1m, amm, logdet, K in parts:
+        q = amm - 2 * mu0 * a1m + mu0 ** 2 * a11
+        ll -= 0.5 * np.sum(logdet + q + K * LOG2PI)
+    return float(ll), mu0
+
+
+def _session_kernels(p, d: DesignData, a, w, T):
+    """Per-session Gaussian kernel in the latent drift (b_j, S_j) and the constant term."""
+    c = d.stim * np.where(d.upper == 1, a * (1.0 - w), -a * w)
+    xb = d.X @ p["beta"] if p["beta"].size else np.zeros_like(T)
+    sv2 = p["sv"] ** 2
+    k = 1.0 + T * sv2                       # = 1 without drift variability
+    S = np.bincount(d.sess, weights=T / k, minlength=d.J)
+    b = np.bincount(d.sess, weights=(c - T * xb) / k, minlength=d.J)
+    extra = float(np.sum((c * xb - 0.5 * T * xb ** 2) / k))
+    if d.sv:
+        extra += float(np.sum(c ** 2 * sv2 / (2 * k) - 0.5 * np.log(k)))
+    return b, S, extra
 
 
 def design_loglik(x, d: DesignData, return_mu0=False):
+    if not d.has_outcomes:
+        raise ValueError("this DesignData was built with outcomes=False (prediction only)")
     p = _unpack(x, d)
     alpha, gamma, kappa, beta = p["alpha"], p["gamma"], p["kappa"], p["beta"]
     a = np.exp(d.Z @ alpha)
@@ -171,17 +272,89 @@ def design_loglik(x, d: DesignData, return_mu0=False):
         wb = np.where(d.upper == 1, 1.0 - w, w)     # zero-drift density: lower uses w, upper 1 - w
         zero = float(np.sum(-2.0 * np.log(a) + _log_g(T / a ** 2, wb)))
         d.zcache.update(key=key, val=zero)
-    c = d.stim * np.where(d.upper == 1, a * (1.0 - w), -a * w)
-    S = np.bincount(d.sess, weights=T, minlength=d.J)
-    b = np.bincount(d.sess, weights=c, minlength=d.J)
-    extra = 0.0
-    if beta.size:
-        xb = d.X @ beta
-        b = b - np.bincount(d.sess, weights=T * xb, minlength=d.J)
-        extra = float(np.sum(c * xb) - 0.5 * np.sum(T * xb ** 2))
+    b, S, extra = _session_kernels(p, d, a, w, T)
     ll = zero + extra + np.sum(b ** 2 / (2 * S) + 0.5 * (LOG2PI - np.log(S)))
     cov, mu0 = _cov_profile(b / S, 1.0 / S, d, p)
     return (ll + cov, mu0) if return_mu0 else ll + cov
+
+
+def p_upper(v, a, z):
+    """Probability that a Wiener process with unit diffusion, drift v and
+    boundary a, started z above the lower boundary, ends at the upper boundary:
+    (1 - exp(-2 v z)) / (1 - exp(-2 v a))."""
+    v, a, z = np.broadcast_arrays(np.asarray(v, float), np.asarray(a, float), np.asarray(z, float))
+    neg = v < 0
+    vv = np.abs(v)
+    zz = np.where(neg, a - z, z)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        pr = np.expm1(-2.0 * vv * zz) / np.expm1(-2.0 * vv * a)
+    pr = np.where(vv * a < 1e-10, zz / a, pr)
+    return np.where(neg, 1.0 - pr, pr)
+
+
+def session_drift_predictive(x, d_train: DesignData, d_test: DesignData):
+    """Mean and variance of the latent drift of each session in d_test, given a
+    fit x to d_train. Test sessions are new sessions; their persons may appear in
+    d_train. Each session drift is the Gaussian conditional of the person's
+    session process given the training sessions' drift kernels (Proposition 2);
+    persons absent from d_train get the population distribution."""
+    if (d_test.kernel, d_test.sv, d_test.nugget, d_test.names) != (d_train.kernel, d_train.sv,
+                                                                   d_train.nugget, d_train.names):
+        raise ValueError("d_test must use the same model specification as d_train")
+    p = _unpack(x, d_train)
+    a = np.exp(d_train.Z @ p["alpha"]); w = _logistic(d_train.Q @ p["gamma"])
+    T = d_train.rt - p["kappa"] * d_train.minrt_trial
+    b, S, _ = _session_kernels(p, d_train, a, w, T)
+    _, mu0 = design_loglik(x, d_train, return_mu0=True)
+    m, var = b / S, 1.0 / S
+    om2 = p["omega"] ** 2
+    zeros = lambda n: np.zeros(n)
+    if not d_train.has_outcomes:
+        raise ValueError("d_train must contain outcomes")
+    tr_slices = {d_train.person[sl.start]: sl for sl in d_train.person_slices}
+    mean = np.empty(d_test.J); v_out = np.empty(d_test.J)
+    for sl in d_test.person_slices:
+        tt = d_test.time[sl]
+        zt = d_test.slope_z[sl] if d_test.slope_z is not None else zeros(tt.size)
+        trs = tr_slices.get(d_test.person[sl.start])
+        if trs is None:
+            K0 = _kcross(tt, tt, zt, zt, tt.min(), d_train, p)
+            mean[sl] = mu0; v_out[sl] = np.diag(K0) + om2
+            continue
+        t = d_train.time[trs]
+        z = d_train.slope_z[trs] if d_train.slope_z is not None else zeros(t.size)
+        t1 = t.min()
+        if d_train.kernel == "rw" and tt.min() < t1:
+            raise ValueError(f"person {d_test.person[sl.start]!r}: a test session precedes the first training "
+                             "session; the random walk is not defined before it starts")
+        C = _kcross(t, t, z, z, t1, d_train, p)
+        C[np.diag_indices_from(C)] += var[trs] + om2 + 1e-10
+        Kx = _kcross(tt, t, zt, z, t1, d_train, p)
+        A = cho_solve(cho_factor(C, lower=True), Kx.T)
+        mean[sl] = mu0 + A.T @ (m[trs] - mu0)
+        v_out[sl] = np.diag(_kcross(tt, tt, zt, zt, t1, d_train, p)) + om2 - np.sum(Kx * A.T, axis=1)
+    scale = np.maximum(1.0, np.abs(v_out).max())
+    if np.any(v_out < -1e-8 * scale):
+        raise ValueError("negative predictive variance; check the test-session times")
+    return mean, np.maximum(v_out, 0.0)
+
+
+def predict_choices(x, d_train: DesignData, d_test: DesignData, n_nodes: int = 40) -> np.ndarray:
+    """Predicted probability of an upper-boundary response for each trial of
+    d_test from a fit x to d_train. The trial drift is
+    stim * (session drift + X beta) plus across-trial variability; it is
+    integrated over its predictive normal distribution by Gauss-Hermite
+    quadrature. Test-trial RTs are not used."""
+    p = _unpack(x, d_train)
+    mean, var = session_drift_predictive(x, d_train, d_test)
+    a = np.exp(d_test.Z @ p["alpha"]); w = _logistic(d_test.Q @ p["gamma"])
+    xb = d_test.X @ p["beta"] if p["beta"].size else np.zeros(d_test.rt.size)
+    mv = d_test.stim * (mean[d_test.sess] + xb)
+    sd = np.sqrt(var[d_test.sess] + p["sv"] ** 2)
+    nodes, wts = np.polynomial.hermite_e.hermegauss(n_nodes)
+    wts = wts / wts.sum()
+    v = mv[:, None] + sd[:, None] * nodes[None, :]
+    return p_upper(v, a[:, None], (w * a)[:, None]) @ wts
 
 
 DESIGN_LOG_THETA = (-6.0, 9.0)   # fitting range; profiles may go beyond
@@ -215,6 +388,10 @@ def _bounds(d: DesignData, fix_theta=None):
             b.append((-8, 8))
         elif n == "log_theta":
             b.append(DESIGN_LOG_THETA if fix_theta is None else (fix_theta, fix_theta))
+        elif n == "log_ell":
+            b.append((-7.0, 6.0))
+        elif n == "log_sv":
+            b.append((-6.0, 1.5))
         elif n == "atanh_rho":
             b.append((-3, 3))
         elif n.startswith("beta:"):
@@ -227,15 +404,23 @@ def _bounds(d: DesignData, fix_theta=None):
 def _starts(d: DesignData, thetas=(0.3, 2.0, 50.0, 2000.0), taus=(0.3, 0.03)):
     names = _names(d)
     out = []
-    for th0 in (thetas if d.ou else (None,)):
+    dyn = {"ou": thetas, "se": (1.0 / 0.3, 1.0 / 2.0, 1.0 / 50.0), "rw": (None,), "none": (None,)}[d.kernel]
+    for th0 in dyn:
         for tau0 in taus:
             z = np.zeros(len(names))
             z[0] = np.log(1.5)
             z[names.index("logit_kappa")] = 2.0
             z[names.index("log_tau")] = np.log(tau0)
-            if d.ou:
+            if d.kernel == "ou":
                 z[names.index("log_theta")] = np.log(th0)
                 z[names.index("log_sd_stat")] = np.log(0.3)
+            elif d.kernel == "se":
+                z[names.index("log_ell")] = np.log(th0)
+                z[names.index("log_sd_stat")] = np.log(0.3)
+            elif d.kernel == "rw":
+                z[names.index("log_sd_rw")] = np.log(0.1)
+            if d.sv:
+                z[names.index("log_sv")] = np.log(0.3)
             if d.nugget:
                 z[names.index("log_omega")] = np.log(0.2)
             if d.slope_z is not None:
@@ -270,10 +455,11 @@ def fit_design(d: DesignData, se: bool = True, x0: np.ndarray | None = None) -> 
         except np.linalg.LinAlgError:
             pass
     params = dict(zip(names, x)); params["mu0"] = mu0
-    params.update({k: p[k] for k in ("kappa", "tau", "theta", "sigma", "omega", "sd_stat", "slope_sd", "rho")})
+    params.update({k: p[k] for k in ("kappa", "tau", "theta", "sigma", "omega", "sd_stat", "slope_sd", "rho",
+                                     "ell", "sd_rw", "sv")})
     sed = dict(zip(names, sev))
     hl, ci, atb = np.nan, (np.nan, np.nan), ""
-    if d.ou:
+    if d.kernel == "ou":
         ilt = names.index("log_theta")
         hl = np.log(2) / p["theta"]
         ci = (float(np.exp(np.log(hl) - 1.96 * sev[ilt])), float(np.exp(np.log(hl) + 1.96 * sev[ilt])))

@@ -148,3 +148,53 @@ if all(f.exists() for f in pfs):
     ax.legend(frameon=False, fontsize=7, loc="center left", bbox_to_anchor=(0.0, 0.42))
     fig.savefig(out / "figure4_colorshapes_profile.png", dpi=300)
     plt.close(fig)
+
+# ---------------- Figure 5: Space Observer profile likelihood ----------------
+sp = [res / "spaceobs_profile_person.csv", res / "spaceobs_profile_person_sv.csv"]
+if all(f.exists() for f in sp):
+    iv = pd.read_csv(res / "spaceobs_profile_intervals.csv").set_index("model")
+    ivsv = pd.read_csv(res / "spaceobs_profile_interval_sv.csv").iloc[0]
+    refs = (iv.loc["person|ou|nosv", "ref_loglik"], ivsv.ref_loglik)
+    fig, ax = plt.subplots(figsize=(6.4, 4.0), constrained_layout=True)
+    for f, ref, lab_, col in ((sp[0], refs[0], "Without drift variability", "#2471a3"),
+                              (sp[1], refs[1], "With across-trial drift variability", "#1e8449")):
+        g = pd.read_csv(f).sort_values("halflife_days")
+        ax.plot(g.halflife_days, 2 * (ref - g.loglik), "-o", ms=3, lw=1.5, color=col, label=lab_)
+    ax.axhline(3.84, color="black", ls="--", lw=0.9)
+    ax.text(2e-4, 4.4, "approx. 95% cut-off (3.84)", fontsize=7)
+    for x, t in ((1 / 24, "1 h"), (1, "1 day"), (14, "14 days")):
+        ax.axvline(x, color="0.85", lw=0.7, zorder=0)
+        ax.text(x * 1.15, 15.3, t, fontsize=6.5, color="0.4")
+    ax.set_xscale("log"); ax.set_ylim(-0.5, 16.5)
+    ax.set_xlabel("Half-life of the OU component (days, log scale)")
+    ax.set_ylabel("Profile deviance from the fitted maximum")
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.legend(frameon=False, fontsize=7, loc="lower right")
+    fig.savefig(out / "figure5_spaceobs_profile.png", dpi=300)
+    plt.close(fig)
+
+# ---------------- Figure 6: session schedules (Simulation study 4) ----------------
+sf = res / "schedule" / "schedule_summary.csv"
+if sf.exists():
+    s = pd.read_csv(sf)
+    s = s[s.truth != "none"].copy()
+    s["hl"] = s.truth.astype(float)
+    order = ["alternate", "daily", "twice", "paired"]
+    slab = ["Alternate days\n7 × 60", "Daily\n14 × 30", "Twice daily\n28 × 15", "Paired 4–6 h\n14 × 30"]
+    cols = {0.25: "#c0392b", 0.65: "#2471a3", 2.0: "#1e8449"}
+    fig, axes = plt.subplots(1, 3, figsize=(7.6, 3.0), constrained_layout=True)
+    for ax, (col_, ttl) in zip(axes, (("detect", "Detection (calibrated 5% test)"),
+                                       ("resolved", "Interval closed and within a factor of 10"),
+                                       ("rmse_log", "RMSE of log half-life"))):
+        for hl, g in s.groupby("hl"):
+            g = g.set_index("schedule").loc[order]
+            y = 1 - g.too_wide if col_ == "resolved" else g[col_]
+            ax.plot(range(4), y, "-o", ms=3.5, lw=1.4, color=cols[hl], label=f"{hl:g} days")
+        ax.set_xticks(range(4)); ax.set_xticklabels(slab, fontsize=6.5)
+        ax.set_title(ttl, fontsize=8)
+        if col_ != "rmse_log":
+            ax.set_ylim(-0.03, 1.03)
+        ax.spines[["top", "right"]].set_visible(False)
+    axes[0].legend(title="True half-life", frameon=False, fontsize=7, title_fontsize=7)
+    fig.savefig(out / "figure6_schedules.png", dpi=300)
+    plt.close(fig)

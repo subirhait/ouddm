@@ -1,5 +1,69 @@
 # Changelog
 
+## 0.6.1
+
+- `schedule_example.py` now applies the same rule as Table 12 of the
+  manuscript: a closed profile interval that spans more than a factor of 10 is
+  reported as unresolved.
+- `schedule_study.py nullcheck`: split-half check of the simulation-calibrated
+  critical values (threshold from one set of no-OU data sets, applied to an
+  independent set). `summary` can pool no-OU data sets from several folders.
+- No change to the package code.
+
+## 0.6.0
+
+- Prediction for future sessions: `DesignData.from_trials(..., outcomes=False)`
+  builds test data without `rt` or `upper` columns; such data can be passed to
+  `predict_choices` as `d_test` but cannot be fitted. `DesignData.trial_index`
+  keeps each trial's row index in the input DataFrame, so predictions can be
+  matched to input rows.
+- `predict_choices` / `session_drift_predictive` reject a random-walk
+  prediction for a session before the person's first training session (the
+  process is not defined there) and raise an error instead of clipping a
+  materially negative predictive variance.
+- Faster likelihood: persons with the same number of sessions are processed as
+  one batch (about three times faster on the Space Observer data; values
+  unchanged up to rounding).
+- New examples: `schedule_study.py` (Simulation study 4: session schedules for
+  a fixed trial budget, calibrated to Space Observer), `schedule_example.py`
+  (one simulated study per schedule, with a guide to reading an unresolved
+  half-life), and `spaceobs_rolling.py` (rolling-origin holdout by gap).
+- `results/schedule_calibration.csv`: generating values for the schedule
+  study (fitted parameters only; no data).
+
+## 0.5.1
+
+- `predict_choices(x, d_train, d_test)`: held-out choice probabilities for new
+  sessions from a `fit_design` fit. Each new session's drift is the Gaussian
+  conditional given the person's training-session kernels
+  (`session_drift_predictive`); the trial drift, with across-trial variability,
+  is integrated by Gauss-Hermite quadrature. `p_upper` gives the probability of
+  an upper-boundary response for a given drift.
+- Internal: the covariance of session drifts and the session kernels are now
+  shared helpers (`_kcross`, `_session_kernels`); likelihood values are unchanged.
+- New tests: `p_upper` against the integrated first-passage density; the
+  predictive mean and variance against direct joint Gaussian conditioning; a
+  simulation in which OU dependence improves held-out prediction.
+- New example: `spaceobs_robustness.py` (sample-rule checks and a final-session
+  holdout for the Space Observer data).
+
+## 0.5.0
+
+- Across-trial drift variability: `DesignData.from_trials(..., sv=True)`. The
+  trial drift varies around the session value with SD `sv`; it integrates out
+  exactly (Proposition 6), so the likelihood stays exact. Simulator: `OUDDMParams(sv=...)`.
+- Session dynamics: `kernel="ou"` (default), `"rw"` (random walk from the first
+  session), `"se"` (squared-exponential Gaussian process), or `"none"`
+  (Corollary 1). `ou=False` still works and means `kernel="none"`.
+- `wald_logpdf` and `first_passage_kernel`: the single-boundary density and the
+  Gaussian drift kernel of any first-passage model (Theorem 1).
+- New tests: drift variability, random-walk and squared-exponential kernels
+  against nested Gauss-Hermite quadrature; the first-passage identity for the
+  two-boundary and Wald models.
+- New examples: `sv_study.py`, `color_shapes_kernels.py`, `dynamics_with_sv.py`,
+  `space_observer_application.py`, `spaceobs_profile_sv.py`.
+- README: the install line no longer says "once released on PyPI".
+
 ## 0.4.4
 
 - No change to the package code (identical to 0.4.2 and 0.4.3).

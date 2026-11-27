@@ -36,6 +36,7 @@ class OUDDMParams:
     a: float = 1.2        # boundary separation
     ter: float = 0.3      # non-decision time (s)
     s: float = 1.0        # within-trial diffusion coefficient (scaling)
+    sv: float = 0.0       # across-trial SD of drift within a session
 
     @property
     def stationary_sd(self) -> float:
@@ -167,6 +168,8 @@ def simulate_study(pars: OUDDMParams, design: DesignParams,
             X = np.broadcast_to(X, (P, J, X.shape[1]))
         shift = X @ np.asarray(beta, float)
     v_trial = np.repeat((v + shift).ravel(), N)
+    if pars.sv > 0:
+        v_trial = v_trial + pars.sv * rng.standard_normal(v_trial.size)
     dtime, upper = simulate_wiener(v_trial, pars.a, pars.s, rng)
     person = np.repeat(np.arange(P), J * N)
     occ = np.tile(np.repeat(np.arange(J), N), P)
